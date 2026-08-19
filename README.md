@@ -94,7 +94,39 @@ guarda la *ruta de importación* de sus clases, no su código. Como el pipeline 
 transformadores propios `PorcentajeATexto` y `RatioATexto`, la API necesita poder importarlos del
 mismo módulo para reconstruirlo.
 
+## Verificado
+
+Levantado y probado con Docker Engine 29.7.2 / Compose v5.4.0 sobre Windows 11 + WSL2:
+
+| | Resultado |
+|---|---|
+| Los tres servicios | `api` healthy · `db` healthy · `entrenador` exited (0) |
+| Modelo entrenado dentro del contenedor | `LogisticRegression`, CV `f1_macro` 0.619 |
+| Métricas en test | accuracy **0.690** · `f1_macro` **0.631** (baseline 0.483 / 0.217) |
+| Predicciones de prueba | Real Madrid→`Home Win` (87.6%) · Ajax→`Away Win` (78.2%), ambas correctas |
+| Prueba 1 (modelo sobrevive a su creador) | pasa |
+| Prueba 2 (`down` → `up`, historial intacto) | pasa |
+| Prueba 3 (`down -v`, todo a cero) | pasa |
+
+Son **exactamente** los mismos números que en la Actividad 3 sobre Windows y sobre macOS — con la
+diferencia de que ahora el entorno está fijado por la imagen y no depende de lo que cada quien
+tenga instalado.
+
+### Un bug real que encontramos
+
+La primera ejecución falló con `PermissionError: [Errno 13] Permission denied:
+'/modelos/modelo.joblib'`. Cuando Docker monta un volumen con nombre **vacío**, copia el
+propietario de esa carpeta tal como existe en la imagen; si no existe, el volumen nace como `root`
+y el usuario sin privilegios del contenedor no puede escribir. El arreglo es crear el directorio
+en la imagen antes de que el volumen se monte encima:
+
+```dockerfile
+RUN useradd --create-home --uid 1000 mlops     && mkdir -p /modelos     && chown -R mlops:mlops /app /modelos
+```
+
+Está explicado en la sección 5 del PDF.
+
 ## Pendiente
 
-- [ ] Capturas de evidencia en `capturas/` (ver sección 7 del PDF)
-- [ ] Ejecutar en una segunda computadora para comprobar que da lo mismo
+- [ ] Capturas de pantalla en `capturas/` (los resultados ya están en el PDF)
+- [ ] Levantarlo en una segunda computadora

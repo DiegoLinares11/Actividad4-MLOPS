@@ -24,7 +24,15 @@ RUN pip install --no-cache-dir -r requirements.txt /tmp/act3_pipeline-0.1.0-py3-
 COPY entrenador/entrenar.py ./
 
 # Usuario sin privilegios: si alguien se mete al contenedor, no es root.
-RUN useradd --create-home --uid 1000 mlops && chown -R mlops:mlops /app
+#
+# El mkdir + chown de /modelos NO es opcional. Cuando Docker monta un volumen
+# con nombre que esta vacio, copia el contenido, el propietario y los permisos
+# que tenga esa carpeta EN LA IMAGEN. Si la carpeta no existe en la imagen, el
+# volumen nace perteneciendo a root y el usuario mlops no puede escribir:
+#   PermissionError: [Errno 13] Permission denied: '/modelos/modelo.joblib'
+RUN useradd --create-home --uid 1000 mlops \
+    && mkdir -p /modelos \
+    && chown -R mlops:mlops /app /modelos
 USER mlops
 
 CMD ["python", "entrenar.py"]

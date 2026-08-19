@@ -288,22 +288,145 @@ docker volume rm <nombre>                       # eliminar (destructivo)
 docker volume prune                             # eliminar los que nadie usa
 \end{verbatim}
 
+\subsection{Un problema real: permisos y vol\'umenes}
+
+Al levantar el sistema por primera vez, el entrenamiento se complet\'o correctamente pero el
+guardado fall\'o:
+
+\begin{verbatim}
+[entrenador] listo en 12.0 s | mejor f1_macro en CV = 0.619
+[entrenador] modelo final: LogisticRegression
+PermissionError: [Errno 13] Permission denied: '/modelos/modelo.joblib'
+\end{verbatim}
+
+La causa es la interacci\'on entre dos buenas pr\'acticas que chocan entre s\'i. Por seguridad, el
+contenedor no corre como \texttt{root} sino como un usuario sin privilegios
+(\texttt{mlops}, uid 1000). Pero cuando Docker monta un volumen con nombre que est\'a vac\'io,
+\textbf{copia el propietario y los permisos de esa carpeta tal como existe en la imagen}; si la
+carpeta no existe en la imagen, el volumen se crea perteneciendo a \texttt{root} y el usuario sin
+privilegios no puede escribir en \'el.
+
+La soluci\'on es crear el directorio dentro de la imagen y asignarle el propietario correcto
+\emph{antes} de que el volumen se monte encima:
+
+\begin{verbatim}
+RUN useradd --create-home --uid 1000 mlops \
+    && mkdir -p /modelos \
+    && chown -R mlops:mlops /app /modelos
+USER mlops
+\end{verbatim}
+
+Como el volumen ya se hab\'ia creado con el propietario equivocado, hubo que eliminarlo con
+\texttt{docker compose down -v} para que naciera de nuevo con los permisos correctos. Es un error
+frecuente y vale la pena registrarlo: el volumen recuerda su propietario igual que recuerda sus
+datos.
+
 \subsection{Demostraci\'on de la persistencia}
 
-\textbf{Prueba 1: el modelo sobrevive a su creador.} Tras \texttt{docker compose up --build}, el
-comando \texttt{docker compose ps -a} muestra el contenedor del entrenador como \emph{exited}; sin
-embargo, \texttt{curl http://localhost:8000/modelo} sigue devolviendo los metadatos del modelo. El
-contenedor que lo cre\'o ya no existe y su trabajo sigue disponible.
+Las tres pruebas se ejecutaron sobre el sistema ya funcionando. Estos son los resultados reales.
 
-\textbf{Prueba 2: la base sobrevive a un apagado completo.} Despu\'es de registrar predicciones,
-un \texttt{docker compose down} elimina los contenedores y un \texttt{docker compose up -d} los
-crea de cero; el endpoint \texttt{/predicciones} sigue devolviendo el mismo
-\texttt{total\_historico}. Adem\'as, en los registros del entrenador aparece el mensaje ``ya
-existe /modelos/modelo.joblib'': no vuelve a entrenar porque encontr\'o su trabajo anterior.
+\textbf{Prueba 1: el modelo sobrevive a su creador.}
 
-\textbf{Prueba 3: sin vol\'umenes no queda nada.} Con \texttt{docker compose down -v}, la bandera
-\texttt{-v} elimina los vol\'umenes; al levantar de nuevo, el entrenador entrena desde cero y el
-historial vuelve a cero. Esa es exactamente la diferencia entre \texttt{down} y \texttt{down -v}.
+\begin{verbatim}
+SERVICE      STATE     STATUS
+api          running   Up 15 seconds (healthy)
+db           running   Up 32 seconds (healthy)
+entrenador   exited    Exited (0) 15 seconds ago
+
+$ curl http://localhost:8000/salud
+{"estado":"ok","contenedor":"72e91038c58f","modelo_cargado":true,"base_de_datos":true}
+\end{verbatim}
+
+El contenedor \texttt{act4-entrenador} ya termin\'o, y sin embargo la API tiene el modelo cargado
+y responde. Los metadatos indican que lo entren\'o el contenedor \texttt{3e635acd60eb}, que ya no
+existe.
+
+Con el modelo en servicio, dos predicciones sobre partidos del propio dataset:
+
+\begin{verbatim}
+Real Madrid vs Marseille (resultado real 2-1):
+  {"prediccion": "Home Win",
+   "probabilidades": {"Home Win": 0.8764, "Draw": 0.1185, "Away Win": 0.0051}}
+
+Ajax vs Inter (resultado real 0-2):
+  {"prediccion": "Away Win",
+   "probabilidades": {"Away Win": 0.7822, "Draw": 0.1868, "Home Win": 0.0310}}
+\end{verbatim}
+
+\textbf{Prueba 2: la base sobrevive a un apagado completo.} Tras \texttt{docker compose down},
+\texttt{docker compose ps -a} no lista ning\'un contenedor, pero \texttt{docker volume ls} sigue
+mostrando \texttt{actividad4-mlops\_modelos} y \texttt{actividad4-mlops\_pgdata}. Al levantar de
+nuevo con \texttt{docker compose up -d}:
+
+\begin{verbatim}
+[entrenador] contenedor 8910543744d3 | python 3.12.14 | sklearn 1.8.0
+[entrenador] ya existe /modelos/modelo.joblib (viene del volumen de una corrida anterior)
+[entrenador] no se reentrena. Para forzarlo: FORZAR_REENTRENO=1
+
+$ curl http://localhost:8000/predicciones
+{"total_historico": 2, ...}
+
+entrenado_en: 2026-08-19T02:44:37+00:00
+contenedor que lo entreno: 3e635acd60eb
+\end{verbatim}
+
+El entrenador es un contenedor \emph{nuevo} (\texttt{8910543744d3}) que encontr\'o el trabajo del
+anterior y decidi\'o no repetirlo; las dos predicciones siguen en la base; y los metadatos del
+modelo siguen apuntando al contenedor original. Nada de eso sobrevivir\'ia sin vol\'umenes.
+
+\textbf{Prueba 3: sin vol\'umenes no queda nada.} Con \texttt{docker compose down -v}:
+
+\begin{verbatim}
+Volume actividad4-mlops_modelos Removed
+Volume actividad4-mlops_pgdata  Removed
+
+$ docker volume ls --filter name=actividad4
+DRIVER    VOLUME NAME
+(vacio)
+\end{verbatim}
+
+Al levantar otra vez, el entrenador vuelve a trabajar desde cero y el historial se pierde:
+
+\begin{verbatim}
+[entrenador] calibrando con RandomizedSearchCV, 60 combinaciones, metrica f1_macro...
+[entrenador] listo en 14.9 s | mejor f1_macro en CV = 0.619
+[entrenador] modelo guardado en /modelos/modelo.joblib (10 KB)
+
+$ curl http://localhost:8000/predicciones
+{"total_historico": 0, "predicciones": []}
+\end{verbatim}
+
+Esa es exactamente la diferencia entre \texttt{down} y \texttt{down -v}, y la raz\'on por la que
+la segunda se escribe con cuidado.
+
+\subsection{Comprobaci\'on de reproducibilidad}
+
+El resultado m\'as importante de toda la actividad es este: el modelo entrenado \textbf{dentro del
+contenedor} dio exactamente los mismos n\'umeros que en las dos computadoras de la Actividad 3.
+
+\begin{center}
+\begin{tabular}{|l|l|l|l|}
+\hline
+& \textbf{Windows (Act.\ 3)} & \textbf{macOS (Act.\ 3)} & \textbf{Contenedor (Act.\ 4)} \\
+\hline
+Modelo ganador & LogisticRegression & LogisticRegression & LogisticRegression \\
+\texttt{f1\_macro} en CV & 0.619 & 0.619 & 0.619 \\
+Accuracy en test & 0.690 & 0.690 & 0.690 \\
+\texttt{f1\_macro} en test & 0.631 & 0.631 & 0.631 \\
+\hline
+\end{tabular}
+\end{center}
+
+La diferencia respecto a la Actividad 3 es la garant\'ia. All\'a los n\'umeros coincidieron por
+suerte: la discrepancia en los puntajes de las b\'usquedas basadas en Random Forest (0.563 contra
+0.611) mostraba que las dos m\'aquinas no estaban ejecutando lo mismo. Aqu\'i la imagen fija
+scikit-learn 1.8.0, pandas 2.3.3 y Python 3.12.14, as\'i que cualquier computadora que levante el
+contenedor ejecuta \emph{exactamente} el mismo entorno. La causa del problema queda eliminada de
+ra\'iz, no solo su s\'intoma.
+
+\emph{Nota:} el servicio entrenador ejecuta \'unicamente \texttt{RandomizedSearchCV}, que fue la
+b\'usqueda ganadora en la Actividad 3; no se volvieron a medir dentro del contenedor las otras dos
+b\'usquedas.
 
 \section{Conclusiones}
 
@@ -327,6 +450,11 @@ dato tiene su mecanismo y confundirlos se paga con p\'erdida de informaci\'on.
 \item \textbf{Las condiciones de \texttt{depends\_on} sustituyen las esperas arbitrarias:} la API
 arranca cuando el entrenador termin\'o correctamente y Postgres responde, no cuando transcurri\'o
 un tiempo fijo.
+
+\item \textbf{Correr sin privilegios exige preparar los vol\'umenes.} El \texttt{PermissionError}
+que nos apareci\'o no fue un descuido aislado: es la consecuencia predecible de montar un volumen
+vac\'io en un contenedor que no corre como \texttt{root}. Un volumen recuerda su propietario igual
+que recuerda sus datos.
 \end{enumerate}
 
 \subsection*{Limitaciones y trabajo futuro}
