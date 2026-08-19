@@ -1,28 +1,70 @@
-\documentclass[11pt,letterpaper]{article}
+\documentclass[12pt,a4paper]{article}
+
+% ---------- Codificación e idioma ----------
 \usepackage[utf8]{inputenc}
 \usepackage[T1]{fontenc}
-\usepackage[margin=2.4cm]{geometry}
-\usepackage{hyperref}
-\usepackage{verbatim}
-\usepackage{parskip}
+\usepackage[spanish,es-noshorthands]{babel}
+\usepackage{lmodern}
+
+% ---------- Paquetes útiles ----------
+\usepackage[margin=2.5cm]{geometry}
 \usepackage{graphicx}
+\usepackage{xcolor}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{enumitem}
+\usepackage{parskip}
+\usepackage{verbatim}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,positioning}
+\usepackage[hidelinks]{hyperref}
+\usepackage{xurl}   % permite cortar las URLs largas para que no se salgan del margen
 
-\hypersetup{colorlinks=true, linkcolor=blue, urlcolor=blue}
+% ---------- Colores (solo para los diagramas) ----------
+\definecolor{azulUVG}{RGB}{30,90,150}
+\definecolor{verde}{RGB}{46,139,87}
+\definecolor{grisclaro}{RGB}{240,243,246}
+\definecolor{gristexto}{RGB}{90,100,110}
 
-\title{\textbf{Actividad 4: Docker, Docker Compose y microservicios}\\[0.3em]
-\large Adaptaci\'on del pipeline de scikit-learn a una arquitectura de contenedores}
-\author{Diego Linares \and Andy Fuentes \and Diederich Solis \and Christian Echeverria}
-\date{Machine Learning Engineering (MLE/MLOps) --- Universidad del Valle de Guatemala\\
-Agosto 2026}
+% Secciones sin numerar para un estilo menos formal
+\setcounter{secnumdepth}{0}
+\pagestyle{plain}
 
 \begin{document}
-\maketitle
+
+% =====================================================================
+%  CARÁTULA
+% =====================================================================
+\begin{titlepage}
+\begin{center}
+
+\textbf{UNIVERSIDAD DEL VALLE DE GUATEMALA}\\
+Facultad de Ingeniería\\[2cm]
+
+\IfFileExists{logo uvg.png}{%
+  \includegraphics[width=0.35\textwidth]{logo uvg.png}\\[2.5cm]
+}{%
+  \vspace*{2.5cm}
+}
+
+{\LARGE\textbf{Docker, Docker Compose y microservicios}}\\[1.5cm]
+
+Diego Linares\\[0.2cm]
+Andy Fuentes\\[0.2cm]
+Christian Echeverria\\[0.2cm]
+Diederich Solis\\[1.5cm]
+
+Machine Learning Engineering\\[2cm]
+
+Agosto 18 de 2026
+
+\end{center}
+\end{titlepage}
 
 \begin{center}
 \textbf{Repositorio:} \url{https://github.com/DiegoLinares11/Actividad4-MLOPS}
 \end{center}
 
-\hrule
 \vspace{1em}
 
 \section{Introducci\'on: el problema que motiva todo}
@@ -83,8 +125,8 @@ Contenedor & Una imagen en ejecuci\'on & La casa habitada \\
 
 De una misma imagen se pueden levantar muchos contenedores. La imagen \textbf{nunca cambia}: lo
 que un contenedor escribe va a una capa temporal por encima, que \textbf{se elimina junto con el
-contenedor}. De esa propiedad se desprende toda la discusi\'on sobre persistencia de la
-secci\'on~\ref{sec:volumenes}.
+contenedor}. De esa propiedad se desprende toda la discusi\'on de la secci\'on
+\emph{Vol\'umenes y persistencia de datos}.
 
 \subsection{Capas y cach\'e de construcci\'on}
 
@@ -211,7 +253,6 @@ scikit-learn, pandas, numpy y scipy. Aqu\'i se ve para qu\'e serv\'ia el trabajo
 la actividad anterior.
 
 \section{Vol\'umenes y persistencia de datos}
-\label{sec:volumenes}
 
 \subsection{El problema de fondo}
 

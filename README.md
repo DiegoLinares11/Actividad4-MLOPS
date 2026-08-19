@@ -124,7 +124,7 @@ en la imagen antes de que el volumen se monte encima:
 RUN useradd --create-home --uid 1000 mlops     && mkdir -p /modelos     && chown -R mlops:mlops /app /modelos
 ```
 
-Está explicado en la sección 5 del PDF.
+Está explicado en la sección *Volúmenes y persistencia de datos* del PDF.
 
 ## Capturas de evidencia
 
