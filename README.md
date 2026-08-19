@@ -126,7 +126,15 @@ RUN useradd --create-home --uid 1000 mlops     && mkdir -p /modelos     && chown
 
 Está explicado en la sección 5 del PDF.
 
-## Pendiente
+## Capturas de evidencia
 
-- [ ] Capturas de pantalla en `capturas/` (los resultados ya están en el PDF)
-- [ ] Levantarlo en una segunda computadora
+Todas en [`capturas/`](capturas/) y las cuatro principales embebidas en el PDF:
+
+| Archivo | Qué muestra |
+|---|---|
+| `entrenamientoTerminal.png` | `docker compose ps -a`, `docker volume ls` y los logs del entrenamiento, en una sola vista |
+| `contenedorDocker.png` | Docker Desktop con los tres servicios y sus imágenes |
+| `volumenesDocker.png` | Los dos volúmenes con nombre |
+| `imagesDocker.png` | Las imágenes construidas (`act4/api:1.0`, `act4/entrenador:1.0`) |
+| `docs.png` · `docsPredecir.png` | La documentación interactiva de FastAPI |
+| `salud.png` · `modelo.png` · `Predicciones.png` | Las respuestas de los endpoints |

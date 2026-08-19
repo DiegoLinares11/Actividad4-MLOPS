@@ -5,6 +5,7 @@
 \usepackage{hyperref}
 \usepackage{verbatim}
 \usepackage{parskip}
+\usepackage{graphicx}
 
 \hypersetup{colorlinks=true, linkcolor=blue, urlcolor=blue}
 
@@ -427,6 +428,49 @@ ra\'iz, no solo su s\'intoma.
 \emph{Nota:} el servicio entrenador ejecuta \'unicamente \texttt{RandomizedSearchCV}, que fue la
 b\'usqueda ganadora en la Actividad 3; no se volvieron a medir dentro del contenedor las otras dos
 b\'usquedas.
+
+\section{Evidencia de ejecuci\'on}
+
+Las capturas completas est\'an en la carpeta \texttt{capturas/} del repositorio. Se incluyen aqu\'i
+las cuatro m\'as representativas.
+
+\begin{figure}[ht]
+\centering
+\includegraphics[width=\textwidth]{capturas/entrenamientoTerminal.png}
+\caption{Tres comandos en una sola vista. Arriba, \texttt{docker compose ps -a}: la API y la base
+en \emph{Up (healthy)} y el entrenador en \emph{Exited (0)}. En medio, \texttt{docker volume ls}
+con los dos vol\'umenes. Abajo, los registros del entrenador con el resultado del entrenamiento
+(\texttt{f1\_macro} en CV de 0.619, \emph{accuracy} de 0.690 en prueba) y la l\'inea final: ``el
+contenedor termina aqui, pero el modelo queda en el volumen''.}
+\end{figure}
+
+\begin{figure}[ht]
+\centering
+\includegraphics[width=\textwidth]{capturas/contenedorDocker.png}
+\caption{Docker Desktop mostrando el conjunto \texttt{actividad4-mlops}. Los tres servicios con su
+imagen correspondiente: \texttt{db} sobre \texttt{postgres:16-alpine} y \texttt{api} sobre
+\texttt{act4/api:1.0} en ejecuci\'on con el puerto 8000 publicado, mientras que
+\texttt{entrenador} aparece detenido. A la derecha, las peticiones HTTP atendidas.}
+\end{figure}
+
+\begin{figure}[ht]
+\centering
+\includegraphics[width=\textwidth]{capturas/volumenesDocker.png}
+\caption{Los vol\'umenes con nombre administrados por Docker: \texttt{actividad4-mlops\_modelos}
+guarda el modelo entrenado y \texttt{actividad4-mlops\_pgdata} la base de datos. Existen de forma
+independiente de los contenedores.}
+\end{figure}
+
+\begin{figure}[ht]
+\centering
+\includegraphics[width=\textwidth]{capturas/docsPredecir.png}
+\caption{Documentaci\'on interactiva que FastAPI genera sola en \texttt{/docs}, con el endpoint
+\texttt{POST /predecir} desplegado. El cuerpo de ejemplo muestra el formato que espera el
+pipeline: la posesi\'on como texto (\texttt{"43\%"}) y los tiros como \texttt{"15 of 28"}, tal
+como vienen en el CSV original.}
+\end{figure}
+
+\clearpage
 
 \section{Conclusiones}
 
