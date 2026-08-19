@@ -1,0 +1,15 @@
+# --- MISMAS versiones que el entrenador ---
+# Un modelo serializado con joblib guarda referencias a las clases de
+# scikit-learn. Si la API tuviera otra version, al cargarlo saldrian avisos de
+# incompatibilidad o directamente reventaria.
+scikit-learn==1.8.0
+pandas==2.3.3
+numpy==2.4.1
+scipy==1.17.1
+joblib==1.5.3
+
+# --- Stack web ---
+fastapi>=0.115
+uvicorn[standard]>=0.30
+pydantic>=2.7
+psycopg[binary]>=3.2

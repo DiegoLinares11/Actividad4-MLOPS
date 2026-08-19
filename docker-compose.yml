@@ -1,0 +1,104 @@
+# Actividad 4 — MLE/MLOps (UVG)
+# Tres microservicios: entrenador (corre y muere), api (queda escuchando) y
+# base de datos. Se levantan con un solo comando: docker compose up --build
+
+name: actividad4-mlops
+
+services:
+
+  # ------------------------------------------------------------------
+  # 1) ENTRENADOR — trabajo por lotes: corre una vez y termina.
+  #    Deja el modelo en el volumen 'modelos' para que la API lo use.
+  # ------------------------------------------------------------------
+  entrenador:
+    build:
+      context: .
+      dockerfile: entrenador/Dockerfile
+    image: act4/entrenador:1.0
+    container_name: act4-entrenador
+    environment:
+      RUTA_CSV: /datos/champions_league_matches.csv
+      DIR_MODELOS: /modelos
+      N_ITER: ${N_ITER:-60}
+      FORZAR_REENTRENO: ${FORZAR_REENTRENO:-0}
+    volumes:
+      # BIND MOUNT de solo lectura: los datos viven en tu disco, no dentro de
+      # la imagen. Cambias el CSV y el proximo entrenamiento lo usa, sin
+      # reconstruir nada.
+      - ./datos:/datos:ro
+      # VOLUMEN CON NOMBRE: lo administra Docker. Sobrevive a que el
+      # contenedor se borre.
+      - modelos:/modelos
+    networks: [red-mlops]
+    restart: "no"          # es un trabajo por lotes: si termina bien, no revive
+
+  # ------------------------------------------------------------------
+  # 2) BASE DE DATOS — guarda el historial de predicciones.
+  # ------------------------------------------------------------------
+  db:
+    image: postgres:16-alpine
+    container_name: act4-db
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-predicciones}
+      POSTGRES_USER: ${POSTGRES_USER:-mlops}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-clave_de_ejemplo}
+    volumes:
+      # Aqui esta el corazon de la persistencia: /var/lib/postgresql/data es
+      # donde Postgres escribe TODO. Sin este volumen, cada `docker compose
+      # down` borraria la base entera.
+      - pgdata:/var/lib/postgresql/data
+      # El script de creacion de tablas corre solo la primera vez (cuando el
+      # volumen esta vacio).
+      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-mlops} -d ${POSTGRES_DB:-predicciones}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
+    networks: [red-mlops]
+    restart: unless-stopped
+
+  # ------------------------------------------------------------------
+  # 3) API — sirve el modelo por HTTP. No entrena: solo lee.
+  # ------------------------------------------------------------------
+  api:
+    build:
+      context: .
+      dockerfile: api/Dockerfile
+    image: act4/api:1.0
+    container_name: act4-api
+    ports:
+      - "${PUERTO_API:-8000}:8000"   # unico servicio expuesto al exterior
+    environment:
+      DIR_MODELOS: /modelos
+      URL_BD: postgresql://${POSTGRES_USER:-mlops}:${POSTGRES_PASSWORD:-clave_de_ejemplo}@db:5432/${POSTGRES_DB:-predicciones}
+    volumes:
+      # El mismo volumen, pero montado de SOLO LECTURA: la API no tiene por
+      # que poder modificar el modelo.
+      - modelos:/modelos:ro
+    depends_on:
+      entrenador:
+        condition: service_completed_successfully  # espera a que el modelo exista
+      db:
+        condition: service_healthy                 # espera a que Postgres acepte conexiones
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/salud')"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    networks: [red-mlops]
+    restart: unless-stopped
+
+# Red privada: los contenedores se ven entre si por su NOMBRE de servicio
+# ('db', 'api'). Docker corre un DNS interno. Nada de esto es visible desde
+# afuera salvo el puerto que publicamos en 'api'.
+networks:
+  red-mlops:
+    driver: bridge
+
+# Volumenes con nombre: viven fuera del ciclo de vida de los contenedores.
+volumes:
+  modelos:
+  pgdata:

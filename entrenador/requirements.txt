@@ -1,0 +1,10 @@
+# Versiones EXACTAS a proposito. En la Actividad 3 descubrimos que el mismo
+# codigo con la misma semilla daba puntajes distintos en Windows y en macOS
+# porque tenian versiones distintas de scikit-learn. Fijar random_state no
+# alcanza: hay que fijar tambien las versiones. La API usa exactamente las
+# mismas para poder deserializar el modelo sin sorpresas.
+scikit-learn==1.8.0
+pandas==2.3.3
+numpy==2.4.1
+scipy==1.17.1
+joblib==1.5.3
