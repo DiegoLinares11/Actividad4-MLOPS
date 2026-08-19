@@ -7,9 +7,9 @@ Diego Linares · Andy Fuentes · Diederich Solis · Christian Echeverria
 El pipeline de scikit-learn que calibramos en la [Actividad 3](https://github.com/DiegoLinares11/Actividad3-MLOPS)
 ahora corre repartido en tres contenedores que se levantan con un solo comando.
 
-> **La investigación completa está en [`Investigacion_Docker.pdf`](Investigacion_Docker.pdf)**
-> (fuente en `Investigacion_Docker.tex`): Docker vs máquinas virtuales, imágenes y capas, Docker
-> Compose, la arquitectura de microservicios y las formas de persistir datos.
+> **La investigación completa está en [`Actividad_4_MLOPS.pdf`](Actividad_4_MLOPS.pdf)**:
+> Docker frente a máquinas virtuales, imágenes y capas, Docker Compose, la arquitectura de
+> microservicios y las formas de persistir datos.
 
 ---
 
@@ -76,7 +76,7 @@ docker compose up --build                   # entrena de cero, historial en 0
 
 ```
 .
-├── Investigacion_Docker.tex / .pdf   # la investigación (entregable)
+├── Actividad_4_MLOPS.pdf             # la investigación (entregable)
 ├── docker-compose.yml                # servicios, red y volúmenes
 ├── .env.example                      # variables (copiar a .env)
 ├── datos/champions_league_matches.csv        # bind mount de solo lectura
